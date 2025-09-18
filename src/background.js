@@ -25,11 +25,10 @@ browser.storage.onChanged.addListener(function (changes, area) {
 /* The first time of loading storage */
 load("storage", reload);
 
-
 /* Download online rules */
 function downloadOnlineURLs() {
     /* Still downloading */
-    if (!storage.onlineURLs || storage.onlineURLs.length <=0 || downloading) {
+    if (!storage.onlineURLs || storage.onlineURLs.length <= 0 || downloading) {
         return;
     }
     downloading = true;
@@ -158,11 +157,19 @@ browser.runtime.onMessage.addListener(function (message, sender, sendResponse) {
 
 function redirect(details) {
     if (storage.enable && details.url) {
-        var newURL = storage.redirect(details.url, details.method, details.type);
-        if (newURL){
+        console.log("URLRedirector: Processing URL: " + details.url);
+        var newURL = storage.redirect(
+            details.url,
+            details.method,
+            details.type
+        );
+        if (newURL) {
+            console.log("URLRedirector: Redirecting " + details.url + " to " + newURL);
             return {
-                redirectUrl: newURL
-            }
+                redirectUrl: newURL,
+            };
+        } else {
+            console.log("URLRedirector: No match found for " + details.url);
         }
     }
     return {};
@@ -199,6 +206,32 @@ if (browser.runtime.getBrowserInfo) {
 /* Add listener */
 browser.webRequest.onBeforeRequest.addListener(
     handleRedirect,
-    {urls: ["<all_urls>"]},
+    { urls: ["<all_urls>"] },
     ["blocking"]
 );
+
+// Add extra logging for monitoring
+browser.webRequest.onBeforeRequest.addListener(
+    function(details) {
+        console.log("URLRedirector: Request intercepted - URL: " + details.url + ", Method: " + details.method + ", Type: " + details.type);
+    },
+    { urls: ["<all_urls>"] }
+);
+
+if (browser.webRequest && browser.webRequest.onErrorOccurred) {
+    browser.webRequest.onErrorOccurred.addListener(
+        function(details) {
+            console.log("URLRedirector: Request error - URL: " + details.url + ", Error: " + details.error);
+        },
+        { urls: ["<all_urls>"] }
+    );
+}
+
+if (browser.webRequest && browser.webRequest.onCompleted) {
+    browser.webRequest.onCompleted.addListener(
+        function(details) {
+            console.log("URLRedirector: Request completed - URL: " + details.url + ", Status: " + details.statusCode);
+        },
+        { urls: ["<all_urls>"] }
+    );
+}

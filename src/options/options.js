@@ -405,13 +405,12 @@ $("#btnDeleteOnlineURL").click(function () {
 
 /* Download in background */
 $("#btnDownload").click(function () {
-    sendMessage("isDownloading", {}, function (response) {
-        if (!response) {
+    // Persist current edits first so service worker sees latest config
+    save({"storage": storage}, function () {
+        sendMessage("isDownloading", {}, function (response) {
             $("#downloadState").text(DOWNLOADING);
             sendMessage("download", {});
-        } else {
-            $("#downloadState").text(DOWNLOADING);
-        }
+        });
     });
 });
 
@@ -450,30 +449,89 @@ function showOnlineURLModal(onlineURL) {
     $("#linkOnlineURL").attr("href", onlineURL.url);
     var $tbody = $("#modalViewOnlineURL tbody");
     $tbody.empty();
-    if (onlineURL.rules && onlineURL.rules.length > 0) {
-        for (var i=0; i<onlineURL.rules.length; i++) {
-            var rule = onlineURL.rules[i];
-            $tbody.append(
-                $("<tr>").append(
-                    $("<td>").append(
-                        $("<input>", {type: "checkbox"}).addClass("checkbox").prop("checked", rule.enable).change(function () {
-                            var idx = $(this).closest("tr").index();
-                            editingOnlineURL.rules[idx].enable = $(this).prop("checked");
-                            /* Disable auto update */
-                            var $tr = $("#tblOnlineURLs tbody tr").eq(editingOnlineURLIdx);
-                            $tr.find(":checkbox").eq(1).prop("checked", false);
-                            editingOnlineURL.auto = false;
-                        })
-                    ),
-                    $("<td>").append(
-                        $("<span>").text(rule.origin),
-                        $("<br>"),
-                        $("<span>").text(rule.target)
+    function renderRules() {
+        $tbody.empty();
+        if (onlineURL.rules && onlineURL.rules.length > 0) {
+            for (var i=0; i<onlineURL.rules.length; i++) {
+                var rule = onlineURL.rules[i];
+                $tbody.append(
+                    $("<tr>").append(
+                        $("<td>").append(
+                            $("<input>", {type: "checkbox"}).addClass("checkbox").prop("checked", rule.enable).change(function () {
+                                var idx = $(this).closest("tr").index();
+                                editingOnlineURL.rules[idx].enable = $(this).prop("checked");
+                                /* Disable auto update */
+                                var $tr = $("#tblOnlineURLs tbody tr").eq(editingOnlineURLIdx);
+                                $tr.find(":checkbox").eq(1).prop("checked", false);
+                                editingOnlineURL.auto = false;
+                            })
+                        ),
+                        $("<td>").append(
+                            $("<span>").text(rule.origin),
+                            $("<br>"),
+                            $("<span>").text(rule.target)
+                        )
                     )
-                )
-            );
+                );
+            }
+        } else {
+            $tbody.append($("<tr>").append($("<td>", {colspan: 2}).text("无可显示规则")));
         }
     }
+
+    // If rules already present, render immediately
+    if (onlineURL.rules && onlineURL.rules.length > 0) {
+        renderRules();
+        $("#modalViewOnlineURL").modal("show");
+        return;
+    }
+
+    // If rules are missing but URL is set, try fetching on demand
+    if (onlineURL.url) {
+        $tbody.append($("<tr>").append($("<td>", {colspan: 2}).text("正在加载...")));
+        $("#modalViewOnlineURL").modal("show");
+        download(onlineURL.url, function (url, content) {
+            $tbody.empty();
+            if (!content) {
+                $tbody.append($("<tr>").append($("<td>", {colspan: 2}).text("下载失败")));
+                return;
+            }
+            try {
+                var json = (typeof content === 'string') ? JSON.parse(content) : content;
+                // Normalize legacy format (< 1.0)
+                if (!json.version || json.version < "1.0") {
+                    var rules = [];
+                    for (var key in json.rules) {
+                        var rule = json.rules[key];
+                        rules.push({
+                            origin: key,
+                            target: rule.dstURL,
+                            enable: rule.enable === undefined ? true : rule.enable,
+                            kind: rule.kind
+                        });
+                    }
+                    json.rules = rules;
+                }
+                // Attach rules to current onlineURL object (in-memory)
+                onlineURL.rules = [];
+                if (json.rules && json.rules.length > 0) {
+                    for (var j=0; j<json.rules.length; j++) {
+                        var r = new Rule();
+                        r.fromObject(json.rules[j]);
+                        onlineURL.rules.push(r);
+                    }
+                }
+                renderRules();
+            } catch (e) {
+                console.error(e);
+                $tbody.append($("<tr>").append($("<td>", {colspan: 2}).text("解析失败")));
+            }
+        });
+        return;
+    }
+
+    // No URL set, just show empty
+    renderRules();
     $("#modalViewOnlineURL").modal("show");
 }
 
@@ -700,6 +758,9 @@ function reload() {
         storage = new Storage();
         if (item && item.storage) {
             storage.fromObject(item.storage);
+        } else {
+            // Initialize defaults on first run so UI can save without warnings
+            save({ storage: storage });
         }
         displayAll();
     });

@@ -70,22 +70,59 @@ if (!String.prototype.startsWith) {
 /* Send message to background */
 function sendMessage(method, args, callback) {
     if (arguments.length === 1) {
-        browser.runtime.sendMessage({
+        var promise = browser.runtime.sendMessage({
             method: method,
             args: {}
         });
+        
+        // 只有当返回值是Promise时才调用catch
+        if (promise && typeof promise.catch === 'function') {
+            promise.catch(function(error) {
+                console.log("Message sending failed:", error);
+            });
+        }
     }
     else if (arguments.length === 2){
-        browser.runtime.sendMessage({
-            method: method,
-            args: args
-        });
+        if (typeof args === 'function') {
+            // Second argument is callback
+            var promise = browser.runtime.sendMessage({
+                method: method,
+                args: {}
+            }, args);
+            
+            // 只有当返回值是Promise时才调用catch
+            if (promise && typeof promise.catch === 'function') {
+                promise.catch(function(error) {
+                    console.log("Message sending failed:", error);
+                });
+            }
+        } else {
+            // Second argument is args
+            var promise = browser.runtime.sendMessage({
+                method: method,
+                args: args
+            });
+            
+            // 只有当返回值是Promise时才调用catch
+            if (promise && typeof promise.catch === 'function') {
+                promise.catch(function(error) {
+                    console.log("Message sending failed:", error);
+                });
+            }
+        }
     }
     else if (arguments.length === 3) {
-        browser.runtime.sendMessage({
+        var promise = browser.runtime.sendMessage({
             method: method,
             args: args
         }, callback);
+        
+        // 只有当返回值是Promise时才调用catch
+        if (promise && typeof promise.catch === 'function') {
+            promise.catch(function(error) {
+                console.log("Message sending failed:", error);
+            });
+        }
     }
     else {
         console.log("Invalid arguments length");

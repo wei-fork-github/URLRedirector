@@ -61,6 +61,7 @@ module.exports = function(grunt) {
             var json = JSON.parse(content);
             json.version = pkg.version;
             delete json.applications;
+            
             return JSON.stringify(json, null, 2);
           }
         }
@@ -90,10 +91,16 @@ module.exports = function(grunt) {
             var json = JSON.parse(content);
             json.version = pkg.version;
             json.author = pkg.author.name;
-            json.background.persistent = true;
-            json.options_page = json.options_ui.page;
+            if (json.background) {
+              json.background.persistent = true;
+            }
+            if (json.options_ui && json.options_ui.page) {
+              json.options_page = json.options_ui.page;
+            }
             delete json.options_ui;
-            delete json.browser_action.browser_style;
+            if (json.browser_action && json.browser_action.browser_style !== undefined) {
+              delete json.browser_action.browser_style;
+            }
             return JSON.stringify(json, null, 2);
           }
         }

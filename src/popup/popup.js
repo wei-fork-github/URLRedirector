@@ -6,10 +6,10 @@ var storage = null;
 
 /* Display all */
 function displayAll() {
-    $("#chbEnable").prop('checked', storage.enable);
+    $("#chbEnable").prop("checked", storage.enable);
     if (storage.updatedAt) {
         var updatedAt = new Date(storage.updatedAt);
-        $("#updatedAt").text(updatedAt.toLocaleTimeString());
+        $("#updatedAt").text(updatedAt);
     }
 }
 
@@ -19,10 +19,11 @@ function reload() {
         if (item && item.storage) {
             storage.fromObject(item.storage);
         } else {
-            console.warn("Could not load options storage.");
+            // Initialize defaults on first run to avoid warnings
+            save({ storage: storage });
         }
         displayAll();
-    })
+    });
 }
 
 /* Auto reload after storage change */
@@ -38,7 +39,7 @@ $("#chbEnable").click(function () {
         if (item && item.storage) {
             storage.fromObject(item.storage);
             storage.enable = $("#chbEnable").is(":checked");
-            save({storage: storage});
+            save({ storage: storage });
         }
     });
 });
@@ -50,7 +51,7 @@ $("#btnOptions").click(function () {
         var options_url = browser.runtime.getURL("options/options.html");
         browser.tabs.create({
             active: true,
-            url: options_url
+            url: options_url,
         });
     }
     window.close();

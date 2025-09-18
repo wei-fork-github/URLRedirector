@@ -1,5 +1,5 @@
 {
-  "name": "URLRedirector",
+  "name": "WeiURLRedirector",
   "homepage": "https://github.com/fengyc/URLRedirector",
   "authors": [
     "fengyingcai <fengyc.work@gmail.com>"
@@ -16,7 +16,6 @@
   ],
   "dependencies": {
     "jquery": "3.3",
-    "bootstrap": "3.3.7",
-    "blockUI": "jquery.blockUI#*"
+    "bootstrap": "3.3.7"
   }
 }

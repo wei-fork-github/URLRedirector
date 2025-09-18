@@ -35,6 +35,7 @@ Rule.prototype.redirect = function (url, method, type) {
     if (this.enable && this._originRe) {
         this._originRe.lastIndex = 0;
         if (this._originRe.test(url)) {
+            console.log("URLRedirector: Rule matched for URL " + url + " with pattern " + this.origin);
             /* Check method */
             if (arguments.length > 1 && method) {
                 if (this.methods && this.methods.length > 0) {
@@ -46,6 +47,7 @@ Rule.prototype.redirect = function (url, method, type) {
                         }
                     }
                     if (!methodMatched) {
+                        console.log("URLRedirector: Method " + method + " not matched for URL " + url);
                         return null;
                     }
                 }
@@ -61,6 +63,7 @@ Rule.prototype.redirect = function (url, method, type) {
                         }
                     }
                     if (!typeMatched) {
+                        console.log("URLRedirector: Type " + type + " not matched for URL " + url);
                         return null;
                     }
                 }
@@ -69,6 +72,7 @@ Rule.prototype.redirect = function (url, method, type) {
             if (this._excludeRe) {
                 this._excludeRe.lastIndex = 0;
                 if (this._excludeRe.test(url)) {
+                    console.log("URLRedirector: URL " + url + " excluded by exclude pattern");
                     return null;
                 }
             }
@@ -96,18 +100,36 @@ Rule.prototype.redirect = function (url, method, type) {
                         } catch (err) {
                             // Something error, could not process
                             // console.warn("Could not process " + this.process + " " + m);
+                            console.log("URLRedirector: Failed to process " + this.process + " for " + m);
                             return null;
                         }
                         newURL = newURL.replace(new RegExp("\\$" + i, "g"), m);
                     }
+                    console.log("URLRedirector: Redirecting (processed) " + url + " to " + newURL);
                     return newURL;
                 }
             } else {
                 /* Return a new url */
                 this._originRe.lastIndex = 0;
-                var newURL = url.replace(this._originRe, this.target);
-                return newURL;
+                // 检查是否是简单的前缀替换
+                if (!this.origin.includes('(') || !this.target.includes('$')) {
+                    // 简单前缀替换
+                    console.log("URLRedirector: Performing simple prefix replacement");
+                    if (url.startsWith(this.origin)) {
+                        var newURL = this.target + url.substring(this.origin.length);
+                        console.log("URLRedirector: Redirecting " + url + " to " + newURL);
+                        return newURL;
+                    }
+                } else {
+                    // 正则表达式替换
+                    console.log("URLRedirector: Performing regex replacement");
+                    var newURL = url.replace(this._originRe, this.target);
+                    console.log("URLRedirector: Redirecting " + url + " to " + newURL);
+                    return newURL;
+                }
             }
+        } else {
+            console.log("URLRedirector: Rule did not match URL " + url + " with pattern " + this.origin);
         }
     }
     return null;
@@ -200,22 +222,53 @@ Storage.prototype.fromObject = function (obj) {
 
 Storage.prototype.redirect = function (url, method, type) {
     if (!this.enable) {
+        console.log("URLRedirector: Extension is disabled");
         return null;
     }
     var isChanged = false;
     var loopCount = 0;
+    console.log("URLRedirector: Starting redirect process for " + url);
     // To avoid endless redirection
     while(loopCount < 1000) {
         var thisStageUrl;
-        if (!this.customRules.some(rule => thisStageUrl = rule.redirect(url, method, type))) {
-            this.onlineURLs.some(rule => thisStageUrl = rule.redirect(url, method, type));
+        // Check custom rules first
+        var customRuleMatched = false;
+        for (var i = 0; i < this.customRules.length; i++) {
+            var rule = this.customRules[i];
+            thisStageUrl = rule.redirect(url, method, type);
+            if (thisStageUrl) {
+                customRuleMatched = true;
+                break;
+            }
         }
+        
+        // If no custom rule matched, check online rules
+        if (!customRuleMatched) {
+            for (var j = 0; j < this.onlineURLs.length; j++) {
+                var onlineRule = this.onlineURLs[j];
+                thisStageUrl = onlineRule.redirect(url, method, type);
+                if (thisStageUrl) {
+                    break;
+                }
+            }
+        }
+        
         if (!thisStageUrl) {
+            if (loopCount === 0) {
+                console.log("URLRedirector: No rules matched for " + url);
+            } else {
+                console.log("URLRedirector: No more redirects, final URL: " + url);
+            }
             break;
         }
         isChanged = true;
+        console.log("URLRedirector: Redirect step " + (loopCount + 1) + ": " + url + " -> " + thisStageUrl);
         url = thisStageUrl;
         loopCount += 1;
     }
-    return isChanged && loopCount < 1000 ? url : null;
+    var result = isChanged && loopCount < 1000 ? url : null;
+    if (result) {
+        console.log("URLRedirector: Final redirect result: " + result);
+    }
+    return result;
 };
