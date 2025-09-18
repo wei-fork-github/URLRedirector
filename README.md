@@ -1,6 +1,11 @@
 URLRedirector
 =============
 
+# fix
+2025-09-18 
+- 修改了支持chrome V3 插件协议.
+
+
 使用 WebExtension 方式编写的 Firefox URL 重定向扩展，并逐步发展到处理整个 webRequest 过程。
 
 扩展的开发受 [gooreplacer](https://github.com/jiacai2050/gooreplacer) 启发，由于 gooreplacer 在 MAC 下运行时会遇到停止运行的问题，因此采用 WebExtension 方式实现，目前测试结果良好。扩展仅支持正则表达式替换方式，不支持通配符。
